@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Notes Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col">
+  <header class="p-4 border-b border-slate-800 bg-slate-900 shadow-md flex justify-between items-center">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">📝</span>
+      <h1 class="text-lg font-bold text-indigo-400">Smart Memo Studio</h1>
+    </div>
+    <span class="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full border border-indigo-500/30">PWA Ready</span>
+  </header>
+
+  <main class="flex-1 p-4 sm:p-6 max-w-4xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
+      <button onclick="createNewNote()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-4 rounded-xl shadow transition-all flex items-center justify-center gap-2">
+        <span>＋ 新規メモ作成</span>
+      </button>
+      <input type="text" id="searchInput" oninput="renderNotesList()" placeholder="メモを検索..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+      <div id="notesList" class="flex flex-col gap-2 overflow-y-auto max-h-[400px]"></div>
+    </div>
+
+    <div class="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4">
+      <input type="text" id="noteTitle" oninput="saveCurrentNote()" placeholder="メモのタイトル..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-base font-bold text-white focus:outline-none focus:border-indigo-500">
+      <textarea id="noteContent" oninput="saveCurrentNote()" placeholder="ここに本文を入力..." class="w-full flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 min-h-[300px] resize-none"></textarea>
+      <div class="flex justify-between items-center text-xs text-slate-500">
+        <span id="saveStatus">保存済み</span>
+        <button onclick="deleteCurrentNote()" class="text-rose-400 hover:underline">このメモを削除</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let notes = JSON.parse(localStorage.getItem('smart_notes') || '[]');
+    let activeNoteId = null;
+
+    if (notes.length === 0) {
+      notes.push({ id: Date.now(), title: '最初のメモ', content: 'ここにメモを記述できます。ローカルに自動保存されます。' });
+    }
+    activeNoteId = notes[0].id;
+
+    function renderNotesList() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const listEl = document.getElementById('notesList');
+      listEl.innerHTML = '';
+
+      const filtered = notes.filter(n => n.title.toLowerCase().includes(search) || n.content.toLowerCase().includes(search));
+
+      filtered.forEach(note => {
+        const div = document.createElement('div');
+        div.onclick = () => selectNote(note.id);
+        div.className = `p-3 rounded-xl border cursor-pointer transition-all ${note.id === activeNoteId ? 'bg-indigo-950/60 border-indigo-500/80 text-white' : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800/50'}`;
+        div.innerHTML = `
+          <div class="font-bold text-xs truncate">${escapeHtml(note.title || '無題のメモ')}</div>
+          <div class="text-[10px] text-slate-500 truncate mt-1">${escapeHtml(note.content || '本文なし')}</div>
+        `;
+        listEl.appendChild(div);
+      });
+    }
+
+    function selectNote(id) {
+      activeNoteId = id;
+      const note = notes.find(n => n.id === id);
+      if (note) {
+        document.getElementById('noteTitle').value = note.title;
+        document.getElementById('noteContent').value = note.content;
+      }
+      renderNotesList();
+    }
+
+    function saveCurrentNote() {
+      const title = document.getElementById('noteTitle').value;
+      const content = document.getElementById('noteContent').value;
+      notes = notes.map(n => n.id === activeNoteId ? { ...n, title, content } : n);
+      localStorage.setItem('smart_notes', JSON.stringify(notes));
+      document.getElementById('saveStatus').innerText = '保存済み';
+      renderNotesList();
+    }
+
+    function createNewNote() {
+      const newNote = { id: Date.now(), title: '新しいメモ', content: '' };
+      notes.unshift(newNote);
+      selectNote(newNote.id);
+    }
+
+    function deleteCurrentNote() {
+      if (!activeNoteId) return;
+      notes = notes.filter(n => n.id !== activeNoteId);
+      if (notes.length > 0) {
+        selectNote(notes[0].id);
+      } else {
+        createNewNote();
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    selectNote(activeNoteId);
+  </script>
+</body>
+</html>
